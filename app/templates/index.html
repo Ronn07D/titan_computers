@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="text-center mt-5">
+    <h1 class="display-4 fw-bold" style="color: #0d3b66;">Bienvenido a TITAN COMPUTERS</h1>
+    <p class="lead mt-3">Tu tienda de confianza para dispositivos electrónicos.</p>
+    
+    <div class="mt-5">
+        <h3>🚧 Página en construcción 🚧</h3>
+        <p>Estás viendo la página de inicio. En el <strong>Incremento II</strong> aquí se mostrará el catálogo de productos.</p>
+        
+        {% if current_user.is_authenticated %}
+            <div class="alert alert-success d-inline-block mt-3">
+                Has iniciado sesión como: <strong>{{ current_user.nombre_usuario }}</strong> (Rol: {{ current_user.rol }})
+            </div>
+        {% else %}
+            <div class="alert alert-warning d-inline-block mt-3">
+                No has iniciado sesión. <a href="{{ url_for('auth.login') }}">Ingresa aquí</a>.
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

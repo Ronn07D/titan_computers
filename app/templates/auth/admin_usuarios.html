@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="mb-4">Gestión de Usuarios (Admin)</h2>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+      <div class="alert alert-{{ category }}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+<table class="table table-bordered table-hover bg-white shadow-sm">
+    <thead class="table-dark">
+        <tr>
+            <th>ID</th>
+            <th>Usuario</th>
+            <th>Rol</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for u in usuarios %}
+        <tr>
+            <td>{{ u.id_usuario }}</td>
+            <td>{{ u.nombre_usuario }}</td>
+            <td>{{ u.rol }}</td>
+            <td>
+                {% if u.estado %}
+                    <span class="badge bg-success">Activo</span>
+                {% else %}
+                    <span class="badge bg-danger">Inactivo</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if u.id_usuario != current_user.id_usuario %}
+                    <a href="{{ url_for('auth.cambiar_estado_usuario', id=u.id_usuario) }}" class="btn btn-sm btn-warning">
+                        Cambiar Estado
+                    </a>
+                {% else %}
+                    <span class="text-muted">Tu cuenta</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

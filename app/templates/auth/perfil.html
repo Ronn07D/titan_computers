@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center mt-4">
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-body p-4">
+                <h3 class="text-center mb-4">Mi Perfil</h3>
+                
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                  {% if messages %}
+                    {% for category, message in messages %}
+                      <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                  {% endif %}
+                {% endwith %}
+
+                <form method="POST">
+                    <div class="mb-3">
+                        <label>Nombre de Usuario (No editable)</label>
+                        <input type="text" class="form-control" value="{{ current_user.nombre_usuario }}" disabled>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label>Nombres</label>
+                            <input type="text" name="nombres" class="form-control" value="{{ current_user.cliente.nombres }}" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label>Apellidos</label>
+                            <input type="text" name="apellidos" class="form-control" value="{{ current_user.cliente.apellidos }}" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label>Correo</label>
+                        <input type="email" name="correo" class="form-control" value="{{ current_user.cliente.correo }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label>Teléfono</label>
+                        <input type="text" name="telefono" class="form-control" value="{{ current_user.cliente.telefono }}">
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">ACTUALIZAR DATOS</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

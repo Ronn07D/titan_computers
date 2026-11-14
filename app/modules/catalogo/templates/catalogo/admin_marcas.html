@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Gestión de Marcas</h2>
+    <a href="{{ url_for('catalogo.nueva_marca') }}" class="btn btn-primary">+ Nueva Marca</a>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+      <div class="alert alert-{{ category }}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+<table class="table table-bordered table-hover bg-white shadow-sm align-middle">
+    <thead class="table-dark">
+        <tr>
+            <th>ID</th>
+            <th>Nombre</th>
+            <th>Descripción</th>
+            <th>Estado</th>
+            <th>Acciones</th> <!-- NUEVA COLUMNA -->
+        </tr>
+    </thead>
+    <tbody>
+        {% for m in marcas %}
+        <tr>
+            <td>{{ m.id_marca }}</td>
+            <td>{{ m.nombre }}</td>
+            <td>{{ m.descripcion }}</td>
+            <td>
+                {% if m.estado %}
+                    <span class="badge bg-success">Activa</span>
+                {% else %}
+                    <span class="badge bg-danger">Inactiva</span>
+                {% endif %}
+            </td>
+            <td>
+                <!-- BOTÓN EDITAR -->
+                <a href="{{ url_for('catalogo.editar_marca', id=m.id_marca) }}" class="btn btn-sm btn-warning">Editar</a>
+                
+                <!-- BOTÓN CAMBIAR ESTADO (Lógica) -->
+                <a href="{{ url_for('catalogo.cambiar_estado_marca', id=m.id_marca) }}" class="btn btn-sm {% if m.estado %}btn-danger{% else %}btn-success{% endif %}">
+                    {% if m.estado %}Desactivar{% else %}Activar{% endif %}
+                </a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center mt-4">
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-body p-4">
+                <!-- Título dinámico -->
+                <h3 class="text-center mb-4">{{ 'Editar Marca' if marca else 'Nueva Marca' }}</h3>
+                
+                <form method="POST">
+                    <div class="mb-3">
+                        <label>Nombre de la Marca</label>
+                        <input type="text" name="nombre" class="form-control" value="{{ marca.nombre if marca else '' }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label>Descripción</label>
+                        <textarea name="descripcion" class="form-control" rows="3">{{ marca.descripcion if marca else '' }}</textarea>
+                    </div>
+                    
+                    <!-- Botón dinámico -->
+                    <button type="submit" class="btn btn-success w-100">
+                        {{ 'ACTUALIZAR MARCA' if marca else 'GUARDAR MARCA' }}
+                    </button>
+                    <a href="{{ url_for('catalogo.admin_marcas') }}" class="btn btn-secondary w-100 mt-2">Cancelar</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

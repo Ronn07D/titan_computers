@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center mt-4">
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-body p-4">
+                <h3 class="text-center mb-4">Crear una cuenta</h3>
+                
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                  {% if messages %}
+                    {% for category, message in messages %}
+                      <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                  {% endif %}
+                {% endwith %}
+
+                <form action="{{ url_for('auth.registro') }}" method="POST">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label>Nombres</label>
+                            <input type="text" name="nombres" class="form-control" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label>Apellidos</label>
+                            <input type="text" name="apellidos" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label>Correo Electrónico</label>
+                        <input type="email" name="correo" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label>Teléfono</label>
+                        <input type="text" name="telefono" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label>Nombre de Usuario</label>
+                        <input type="text" name="usuario" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label>Contraseña</label>
+                        <input type="password" name="contrasena" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-success w-100 mb-3">REGISTRARSE</button>
+                </form>
+                <div class="text-center">
+                    <small>¿Ya tienes cuenta? <a href="{{ url_for('auth.login') }}">Inicia sesión aquí</a></small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
