@@ -29,7 +29,12 @@
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('auth.perfil') }}">Mi cuenta ({{ current_user.nombre_usuario }})</a>
                         </li>
-                        
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('carrito.ver_carrito') }}">🛒 Carrito</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('carrito.mis_pedidos') }}">📦 Mis Pedidos</a>
+                        </li>
                         <!-- ENLACES EXCLUSIVOS DEL ADMINISTRADOR -->
                         {% if current_user.rol == 'ADMIN' %}
                             <li class="nav-item dropdown">

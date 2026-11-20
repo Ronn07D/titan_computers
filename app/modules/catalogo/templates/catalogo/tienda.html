@@ -90,7 +90,7 @@
             <small class="text-muted mb-3">Stock: {{ p.stock }} unidades</small>
             
             {% if current_user.is_authenticated and current_user.rol == 'CLIENTE' %}
-                <button class="btn btn-outline-primary w-100" disabled>Agregar al carrito</button>
+                <a href="{{ url_for('carrito.agregar', id_producto=p.id_producto) }}" class="btn btn-primary w-100">Agregar al Carrito</a>
             {% else %}
                 <a href="{{ url_for('auth.login') }}" class="btn btn-outline-secondary w-100">Ingresa para comprar</a>
             {% endif %}
