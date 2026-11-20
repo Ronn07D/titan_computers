@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center mt-4 mb-5">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-body p-4">
+                <h3 class="text-center mb-4">{{ 'Editar Promoción' if promocion else 'Nueva Promoción' }}</h3>
+                
+                <form method="POST">
+                    <div class="mb-3">
+                        <label>Título de la Promoción</label>
+                        <input type="text" name="titulo" class="form-control" value="{{ promocion.titulo if promocion else '' }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label>Descripción</label>
+                        <textarea name="descripcion" class="form-control" rows="2">{{ promocion.descripcion if promocion else '' }}</textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label>Condiciones</label>
+                        <input type="text" name="condiciones" class="form-control" value="{{ promocion.condiciones if promocion else '' }}">
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label>Fecha Inicio</label>
+                            <input type="date" name="fecha_inicio" class="form-control" value="{{ promocion.fecha_inicio.strftime('%Y-%m-%d') if promocion else '' }}" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label>Fecha Fin</label>
+                            <input type="date" name="fecha_fin" class="form-control" value="{{ promocion.fecha_fin.strftime('%Y-%m-%d') if promocion else '' }}" required>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="fw-bold">Seleccione los productos:</label>
+                        <div class="border p-3 rounded bg-light" style="max-height: 250px; overflow-y: auto;">
+                            {% for p in productos %}
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" name="productos" value="{{ p.id_producto }}" id="prod{{ p.id_producto }}"
+                                {% if promocion and p.id_producto in productos_en_promo %}checked{% endif %}>
+                                <label class="form-check-label" for="prod{{ p.id_producto }}">
+                                    <strong>{{ p.nombre }}</strong>
+                                </label>
+                            </div>
+                            {% else %}
+                            <p class="text-muted">No hay productos activos.</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-success w-100 mt-3">
+                        {{ 'ACTUALIZAR PROMOCIÓN' if promocion else 'GUARDAR PROMOCIÓN' }}
+                    </button>
+                    <a href="{{ url_for('ofertas.admin_promociones') }}" class="btn btn-secondary w-100 mt-2">Cancelar</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

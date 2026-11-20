@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Gestión de Ofertas</h2>
+    <a href="{{ url_for('ofertas.nueva_oferta') }}" class="btn btn-primary">+ Nueva Oferta</a>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+      <div class="alert alert-{{ category }}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+<table class="table table-bordered bg-white shadow-sm align-middle">
+    <thead class="table-dark">
+        <tr>
+            <th>ID</th>
+            <th>Nombre</th>
+            <th>Descuento</th>
+            <th>Vigencia</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for o in ofertas %}
+        <tr>
+            <td>{{ o.id_oferta }}</td>
+            <td>{{ o.nombre }}</td>
+            <td><span class="badge bg-danger">-{{ o.porcentaje_descuento }}%</span></td>
+            <td>{{ o.fecha_inicio }} al {{ o.fecha_fin }}</td>
+            <td>
+                {% if o.estado %}
+                    <span class="badge bg-success">Activa</span>
+                {% else %}
+                    <span class="badge bg-secondary">Inactiva</span>
+                {% endif %}
+            </td>
+            <td>
+                <!-- BOTÓN EDITAR -->
+                <a href="{{ url_for('ofertas.editar_oferta', id=o.id_oferta) }}" class="btn btn-sm btn-warning">Editar</a>
+
+                <a href="{{ url_for('ofertas.cambiar_estado_oferta', id=o.id_oferta) }}" class="btn btn-sm {% if o.estado %}btn-danger{% else %}btn-success{% endif %}">
+                    {% if o.estado %}Desactivar{% else %}Activar{% endif %}
+                </a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

@@ -5,6 +5,11 @@ from flask_login import login_required, current_user
 from app.modules.catalogo import bp_catalogo
 from app.extensions import db
 from app.models.catalogo import Categoria, Marca, Producto
+from app.models.oferta import Oferta
+from app.models.oferta import Oferta, Promocion 
+from datetime import date
+
+
 
 # --- RUTAS DE CATEGORÍAS ---
 
@@ -137,15 +142,12 @@ def cambiar_estado_marca(id):
 # --- CATÁLOGO PÚBLICO (RF-15 y RF-16) ---
 @bp_catalogo.route('/tienda')
 def tienda():
-    # 1. Capturamos los filtros de búsqueda (si existen)
     busqueda = request.args.get('q', '')
     categoria_id = request.args.get('categoria', '')
     marca_id = request.args.get('marca', '')
 
-    # 2. Consulta base: solo productos activos
     query = Producto.query.filter_by(estado=True)
 
-    # 3. Aplicamos los filtros
     if busqueda:
         query = query.filter(Producto.nombre.ilike(f'%{busqueda}%'))
     if categoria_id:
@@ -153,18 +155,50 @@ def tienda():
     if marca_id:
         query = query.filter_by(id_marca=marca_id)
 
-    # 4. Ejecutamos la consulta
     productos = query.all()
-    
-    # 5. Traemos categorías y marcas activas para los desplegables
     categorias = Categoria.query.filter_by(estado=True).all()
     marcas = Marca.query.filter_by(estado=True).all()
+    
+    # --- LÓGICA DE OFERTAS VIGENTES ---
+    hoy = date.today()
+    ofertas_vigentes = Oferta.query.filter(
+        Oferta.estado == True,
+        Oferta.fecha_inicio <= hoy,
+        Oferta.fecha_fin >= hoy
+    ).all()
+    
+    descuentos = {}
+    for oferta in ofertas_vigentes:
+        for detalle in oferta.detalles:
+            descuentos[detalle.id_producto] = detalle.precio_oferta
+
+    # --- LÓGICA DE PROMOCIONES VIGENTES (NUEVO) ---
+    promociones_vigentes = Promocion.query.filter(
+        Promocion.estado == True,
+        Promocion.fecha_inicio <= hoy,
+        Promocion.fecha_fin >= hoy
+    ).all()
 
     return render_template('catalogo/tienda.html', 
                            productos=productos, 
                            categorias=categorias, 
                            marcas=marcas,
-                           busqueda=busqueda)
+                           busqueda=busqueda,
+                           descuentos=descuentos,
+                           promociones=promociones_vigentes) # <-- Pasamos las promos
+    
+    # Creamos un diccionario para buscar rápido: {id_producto: precio_descuento}
+    descuentos = {}
+    for oferta in ofertas_vigentes:
+        for detalle in oferta.detalles:
+            descuentos[detalle.id_producto] = detalle.precio_oferta
+
+    return render_template('catalogo/tienda.html', 
+                           productos=productos, 
+                           categorias=categorias, 
+                           marcas=marcas,
+                           busqueda=busqueda,
+                           descuentos=descuentos) # <-- Pasamos los descuentos
 
 #catalogo 
 
@@ -273,3 +307,40 @@ def cambiar_estado_producto(id):
     estado_texto = "activado" if producto.estado else "desactivado"
     flash(f'Producto {producto.nombre} {estado_texto} correctamente.', 'success')
     return redirect(url_for('catalogo.admin_productos'))
+
+
+@bp_catalogo.route('/ofertas')
+def ofertas_vigentes():
+    # 1. Buscamos las ofertas activas hoy
+    hoy = date.today()
+    ofertas_activas = Oferta.query.filter(
+        Oferta.estado == True,
+        Oferta.fecha_inicio <= hoy,
+        Oferta.fecha_fin >= hoy
+    ).all()
+    
+    # 2. Extraemos los IDs de los productos que tienen oferta
+    ids_productos_en_oferta = []
+    descuentos = {}
+    for oferta in ofertas_activas:
+        for detalle in oferta.detalles:
+            ids_productos_en_oferta.append(detalle.id_producto)
+            descuentos[detalle.id_producto] = detalle.precio_oferta
+
+    # 3. Buscamos solo esos productos
+    productos = Producto.query.filter(
+        Producto.id_producto.in_(ids_productos_en_oferta),
+        Producto.estado == True
+    ).all()
+
+    categorias = Categoria.query.filter_by(estado=True).all()
+    marcas = Marca.query.filter_by(estado=True).all()
+
+    # 4. Reutilizamos la misma plantilla de la tienda
+    return render_template('catalogo/tienda.html', 
+                           productos=productos, 
+                           categorias=categorias, 
+                           marcas=marcas,
+                           busqueda="",
+                           descuentos=descuentos,
+                           promociones=[]) # No mostramos banners aquí

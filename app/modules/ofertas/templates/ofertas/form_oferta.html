@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center mt-4 mb-5">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-body p-4">
+                <!-- Título dinámico -->
+                <h3 class="text-center mb-4">{{ 'Editar Oferta' if oferta else 'Nueva Oferta' }}</h3>
+                
+                <form method="POST">
+                    <div class="mb-3">
+                        <label>Nombre de la Oferta (Ej. Cyber Monday)</label>
+                        <input type="text" name="nombre" class="form-control" value="{{ oferta.nombre if oferta else '' }}" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label>Descuento (%)</label>
+                            <input type="number" step="0.01" name="porcentaje_descuento" class="form-control" value="{{ oferta.porcentaje_descuento if oferta else '' }}" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label>Fecha Inicio</label>
+                            <!-- Formateamos la fecha para que el input type="date" la entienda -->
+                            <input type="date" name="fecha_inicio" class="form-control" value="{{ oferta.fecha_inicio.strftime('%Y-%m-%d') if oferta else '' }}" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label>Fecha Fin</label>
+                            <input type="date" name="fecha_fin" class="form-control" value="{{ oferta.fecha_fin.strftime('%Y-%m-%d') if oferta else '' }}" required>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="fw-bold">Seleccione los productos en oferta:</label>
+                        <div class="border p-3 rounded bg-light" style="max-height: 250px; overflow-y: auto;">
+                            {% for p in productos %}
+                            <div class="form-check mb-2">
+                                <!-- Si el producto ya está en la oferta, lo marcamos -->
+                                <input class="form-check-input" type="checkbox" name="productos" value="{{ p.id_producto }}" id="prod{{ p.id_producto }}"
+                                {% if oferta and p.id_producto in productos_en_oferta %}checked{% endif %}>
+                                <label class="form-check-label" for="prod{{ p.id_producto }}">
+                                    <strong>{{ p.nombre }}</strong> (Precio actual: Bs {{ p.precio }})
+                                </label>
+                            </div>
+                            {% else %}
+                            <p class="text-muted">No hay productos activos registrados.</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Botón dinámico -->
+                    <button type="submit" class="btn btn-success w-100 mt-3">
+                        {{ 'ACTUALIZAR OFERTA' if oferta else 'GUARDAR OFERTA' }}
+                    </button>
+                    <a href="{{ url_for('ofertas.admin_ofertas') }}" class="btn btn-secondary w-100 mt-2">Cancelar</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
