@@ -11,3 +11,8 @@ __pycache__/
 # Base de datos local / instancias
 instance/
 *.db
+
+#comprobates 
+app/uploads/
+__pycache__/
+*.pyc

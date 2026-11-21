@@ -28,7 +28,13 @@ def create_app():
     # blueprint de carrito
     from app.modules.carrito import bp_carrito
     app.register_blueprint(bp_carrito, url_prefix='/carrito')
-
+    
+    # blueprint de pagos y ventas
+    from app.modules.pagos import bp_pagos
+    app.register_blueprint(bp_pagos, url_prefix='/pagos')
+    from app.modules.ventas.routes import bp_ventas
+    app.register_blueprint(bp_ventas, url_prefix='/ventas')
+    
     @app.route('/')
     def index():
         from flask import render_template

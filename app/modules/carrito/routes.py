@@ -1,3 +1,4 @@
+from app.models import pedido
 from flask import render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 from app.modules.carrito import bp_carrito
@@ -43,7 +44,7 @@ def agregar(id_producto):
         
     db.session.commit()
     flash('Producto agregado al carrito.', 'success')
-    return redirect(url_for('catalogo.tienda'))
+    return redirect(url_for('carrito.ver_carrito'))
 
 # --- VER CARRITO ---
 @bp_carrito.route('/')
@@ -87,7 +88,9 @@ def eliminar(id_detalle):
 @login_required
 def confirmar_pedido():
     if current_user.rol != 'CLIENTE':
-        return redirect('/')
+        return redirect(
+    url_for("pagos.pagar", id_pedido=pedido.id_pedido)
+)
         
     carrito = obtener_carrito()
     
@@ -135,14 +138,14 @@ def confirmar_pedido():
     return redirect(url_for('carrito.mis_pedidos'))
 
 # --- VER MIS PEDIDOS (RF-24) ---
+
 @bp_carrito.route('/mis-pedidos')
 @login_required
 def mis_pedidos():
     if current_user.rol != 'CLIENTE':
         return redirect('/')
-        
-    pedidos = Pedido.query.filter_by(id_cliente=current_user.cliente.id_cliente).order_by(Pedido.fecha.desc()).all()
-    return render_template('carrito/mis_pedidos.html', pedidos=pedidos)
+
+    return redirect(url_for('pagos.mis_pedidos'))
 
 
 # --- CANCELAR PEDIDO (Lógica de arrepentimiento) ---
