@@ -1,0 +1,386 @@
+{% extends "base.html" %}
+{% from "pv_macros.html" import csrf, dinero, fecha %}
+
+{% block content %}
+{% macro badge_pedido(estado) -%}
+    {%- set mapa = {
+        'PENDIENTE': ('bg-light text-dark border', 'pendiente'),
+        'ENVIADO':   ('bg-info text-dark',         'enviado'),
+        'ENTREGADO': ('bg-success',                'entregado'),
+        'CANCELADO': ('bg-danger',                 'cancelado')
+    } -%}
+    {%- set e = mapa.get(estado, ('bg-secondary', estado|lower)) -%}
+    <span class="badge {{ e[0] }}">Pedido: {{ e[1] }}</span>
+{%- endmacro %}
+
+{% macro badge_pago(pago, prefijo='Pago: ') -%}
+    {%- set mapa = {
+        'PENDIENTE': ('bg-warning text-dark', 'en revisión'),
+        'VALIDADO':  ('bg-success',           'validado'),
+        'RECHAZADO': ('bg-danger',            'rechazado')
+    } -%}
+    {%- set e = mapa.get(pago.estado, ('bg-secondary', pago.estado|lower)) -%}
+    <span class="badge {{ e[0] }}">{{ prefijo }}{{ e[1] }}</span>
+{%- endmacro %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+    <div>
+        <h2 class="mb-1">Mis pedidos</h2>
+        <p class="text-muted mb-0">Consulta tus productos, el estado del pedido y tus pagos.</p>
+    </div>
+    <a href="{{ url_for('catalogo.tienda') }}" class="btn btn-outline-primary">Seguir comprando</a>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ 'danger' if category == 'error' else category }}" role="alert">{{ message }}</div>
+    {% endfor %}
+{% endwith %}
+
+{% if filas %}
+<div class="accordion" id="accordionPedidos">
+    {% for f in filas %}
+    {% set pedido = f.pedido %}
+    {% set pago = f.pago %}
+
+    <div class="accordion-item mb-3 border rounded shadow-sm overflow-hidden">
+
+        {# Encabezado: número, fecha, importe y estados #}
+        <h2 class="accordion-header" id="encabezadoPedido{{ pedido.id_pedido }}">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                data-bs-target="#pedido{{ pedido.id_pedido }}" aria-expanded="false"
+                aria-controls="pedido{{ pedido.id_pedido }}">
+                <span class="d-flex flex-wrap w-100 justify-content-between align-items-center gap-3 pe-3">
+                    <span>
+                        <span class="fw-bold d-block">Pedido #{{ pedido.id_pedido }}</span>
+                        <small class="text-muted">{{ fecha(pedido.fecha) }}</small>
+                    </span>
+                    <span class="d-flex flex-wrap align-items-center gap-2">
+                        <span class="badge bg-primary fs-6">{{ dinero(pedido.total) }}</span>
+                        {{ badge_pedido(pedido.estado) }}
+                        {% if pago %}
+                            {{ badge_pago(pago) }}
+                        {% elif pedido.estado != 'CANCELADO' %}
+                            <span class="badge bg-warning text-dark">Sin comprobante</span>
+                        {% endif %}
+                    </span>
+                </span>
+            </button>
+        </h2>
+
+        <div id="pedido{{ pedido.id_pedido }}" class="accordion-collapse collapse"
+            aria-labelledby="encabezadoPedido{{ pedido.id_pedido }}" data-bs-parent="#accordionPedidos">
+            <div class="accordion-body">
+
+                <h3 class="h6 mb-3">Productos del pedido</h3>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Producto</th>
+                                <th class="text-center">Cantidad</th>
+                                <th class="text-end">Precio unitario</th>
+                                <th class="text-end">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for d in pedido.detalles %}
+                            <tr>
+                                <td>{{ d.producto.nombre }}</td>
+                                <td class="text-center">{{ d.cantidad }}</td>
+                                <td class="text-end text-nowrap">{{ dinero(d.precio_unitario) }}</td>
+                                <td class="text-end text-nowrap">{{ dinero(d.subtotal) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <th colspan="3" class="text-end">Total</th>
+                                <th class="text-end text-nowrap">{{ dinero(pedido.total) }}</th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <div class="bg-light border rounded p-3 mt-3">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                        <div>
+                            <h3 class="h6 mb-2">Estado del pago</h3>
+                            {% if pago %}
+                                {{ badge_pago(pago, '') }}
+                            {% else %}
+                                <span class="badge bg-secondary">Sin pago registrado</span>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-2">
+                            {% if pago and pago.comprobante %}
+                            <a href="{{ url_for('pagos.comprobante', id_pago=pago.id_pago) }}"
+                                class="btn btn-outline-secondary btn-sm" target="_blank" rel="noopener noreferrer">
+                                Ver comprobante
+                            </a>
+                            {% endif %}
+
+                            {% if f.puede_pagar %}
+                            {# Un único modal compartido: estos data-* le dicen qué pedido pagar #}
+                            <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal"
+                                data-bs-target="#modalPago"
+                                data-pedido="{{ pedido.id_pedido }}"
+                                data-total="{{ dinero(pedido.total) }}"
+                                data-action="{{ url_for('pagos.pagar', id_pedido=pedido.id_pedido) }}"
+                                data-rechazo="{{ (pago.observacion or 'Sin observaciones.') if pago and pago.estado == 'RECHAZADO' else '' }}">
+                                {{ 'Subir nuevo comprobante' if pago else 'Pagar pedido' }}
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {% if pago and pago.estado == 'RECHAZADO' %}
+                    <div class="alert alert-danger mt-3 mb-0">
+                        <span class="fw-semibold">Motivo del rechazo:</span>
+                        {{ pago.observacion or 'Sin observaciones.' }}
+                        {% if f.puede_pagar %}
+                        <div class="small mt-1">Revisa el motivo y envía un nuevo comprobante.</div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    {% if pedido.estado == 'CANCELADO' %}
+                    <p class="small text-muted mt-3 mb-0">Este pedido está cancelado y no admite nuevos pagos.</p>
+                    {% endif %}
+                </div>
+
+                {% if pedido.estado == 'PENDIENTE' and not pago %}
+                <div class="d-flex justify-content-end mt-3">
+                    <a href="{{ url_for('carrito.cancelar_pedido', id_pedido=pedido.id_pedido) }}"
+                        class="btn btn-outline-danger btn-sm"
+                        onclick="return confirm('¿Estás seguro de que deseas cancelar este pedido?')">
+                        Cancelar pedido
+                    </a>
+                </div>
+                {% endif %}
+
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% else %}
+<div class="alert alert-info text-center py-5">
+    <h4>No tienes pedidos registrados todavía.</h4>
+    <p>Cuando confirmes una compra, podrás consultarla y pagarla aquí.</p>
+    <a href="{{ url_for('catalogo.tienda') }}" class="btn btn-primary mt-2">Ir al catálogo</a>
+</div>
+{% endif %}
+{#MODAL DE PAGO ÚNICO#}
+{% if filas|selectattr('puede_pagar')|list %}
+<div class="modal fade" id="modalPago" tabindex="-1" aria-labelledby="tituloPago" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 rounded-4 shadow">
+
+            <div class="modal-header border-0 px-4 pt-4 pb-2">
+                <div>
+                    <h2 class="modal-title fs-5 fw-bold" id="tituloPago">
+                        Pagar pedido <span id="pagoPedido"></span>
+                    </h2>
+                    <p class="text-muted small mb-0 mt-1">Selecciona un método y adjunta tu comprobante.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+
+            <div class="modal-body px-4 pb-4">
+
+                <div class="d-flex justify-content-between align-items-center gap-3 bg-light border rounded-3 p-3 mb-4">
+                    <span class="text-muted">Total a pagar</span>
+                    <span class="fs-4 fw-bold text-primary pago-total"></span>
+                </div>
+
+                <div class="alert alert-danger small" id="pagoRechazo" hidden>
+                    <p class="fw-semibold mb-1">Tu comprobante anterior fue rechazado</p>
+                    <p class="mb-0" id="pagoRechazoTexto"></p>
+                </div>
+
+                <form id="formPago" method="post" enctype="multipart/form-data">
+                    {{ csrf() }}
+
+                    <fieldset class="mb-4">
+                        <legend class="fs-6 fw-bold mb-3">1. Elige el método de pago</legend>
+                        <div class="row g-3">
+                            <div class="col-sm-6">
+                                <div class="border rounded-3 p-3 h-100">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="metodo"
+                                            id="metodoTransferencia" value="TRANSFERENCIA" required>
+                                        <label class="form-check-label" for="metodoTransferencia">
+                                            <span class="fw-semibold d-block">Transferencia bancaria</span>
+                                            <small class="text-muted">Consulta los datos de la cuenta.</small>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="border rounded-3 p-3 h-100">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="metodo"
+                                            id="metodoQr" value="QR" required {{ 'disabled' if not hay_qr }}>
+                                        <label class="form-check-label" for="metodoQr">
+                                            <span class="fw-semibold d-block">Código QR</span>
+                                            <small class="text-muted">
+                                                {{ 'Escanea desde tu aplicación bancaria.' if hay_qr else 'No disponible por el momento.' }}
+                                            </small>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <div class="bg-light border rounded-3 p-3 mb-4" id="datosTransferencia" hidden>
+                        <h3 class="h6 fw-bold mb-3">Datos para la transferencia</h3>
+                        <dl class="row small mb-0">
+                            {% for clave, valor in datos_bancarios.items() %}
+                            <dt class="col-sm-5 text-muted">{{ clave }}</dt>
+                            <dd class="col-sm-7 text-break">{{ valor }}</dd>
+                            {% endfor %}
+                        </dl>
+                        <div class="d-flex justify-content-between border-top pt-3 mt-2 gap-2">
+                            <span>Monto exacto</span>
+                            <span class="fw-bold pago-total"></span>
+                        </div>
+                    </div>
+
+                    <div class="bg-light border rounded-3 p-3 mb-4 text-center" id="datosQr" hidden>
+                        <h3 class="h6 fw-bold mb-3">Escanea el código QR</h3>
+                        {% if hay_qr %}
+                        <img src="{{ url_for('static', filename='img/' ~ archivo_qr) }}"
+                            alt="Código QR de pago de Titan Computers" loading="lazy"
+                            class="img-fluid bg-white border rounded-3 p-2 mb-3" style="width: 240px; max-width: 100%;">
+                        {% endif %}
+                        <p class="small text-muted mb-2">Verifica el destinatario y el importe antes de pagar.</p>
+                        <p class="mb-0">Monto exacto: <span class="fw-bold pago-total"></span></p>
+                    </div>
+
+                    <h3 class="h6 fw-bold mb-3">2. Adjunta tu comprobante</h3>
+
+                    <div class="mb-3">
+                        <label for="pagoReferencia" class="form-label">
+                            Número de transacción <span class="text-muted small">(opcional)</span>
+                        </label>
+                        <input type="text" class="form-control" id="pagoReferencia" name="referencia"
+                            maxlength="60" placeholder="Número de referencia">
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="pagoArchivo" class="form-label">Comprobante de pago</label>
+                        <input type="file" class="form-control" id="pagoArchivo" name="comprobante"
+                            accept=".jpg,.jpeg,.png,.pdf" aria-describedby="pagoAyuda" required>
+                        <div class="form-text" id="pagoAyuda">JPG, PNG o PDF. Máximo 5 MB.</div>
+                        <div class="invalid-feedback" id="pagoErrorArchivo" role="alert"></div>
+                    </div>
+
+                    <div class="alert alert-info small">
+                        Un administrador revisará tu comprobante. Podrás consultar el resultado en “Mis pedidos”.
+                    </div>
+
+                    <div class="d-flex flex-column flex-sm-row justify-content-end gap-2 border-top pt-3">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                            Volver sin enviar
+                        </button>
+                        <button type="submit" class="btn btn-primary" id="pagoEnviar">Enviar comprobante</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const modal = document.getElementById('modalPago');
+    if (!modal) return;
+
+    const form = document.getElementById('formPago');
+    const archivo = document.getElementById('pagoArchivo');
+    const errorArchivo = document.getElementById('pagoErrorArchivo');
+    const boton = document.getElementById('pagoEnviar');
+    const EXTENSIONES = ['jpg', 'jpeg', 'png', 'pdf'];
+    const MAX_BYTES = 5 * 1024 * 1024;
+
+    function mostrarMetodo() {
+        const m = form.querySelector('input[name="metodo"]:checked');
+        document.getElementById('datosTransferencia').hidden = !(m && m.value === 'TRANSFERENCIA');
+        document.getElementById('datosQr').hidden = !(m && m.value === 'QR');
+    }
+
+    function validarArchivo() {
+        archivo.setCustomValidity('');
+        archivo.classList.remove('is-invalid');
+        errorArchivo.textContent = '';
+
+        const f = archivo.files[0];
+        if (!f) return true;
+
+        const ext = f.name.split('.').pop().toLowerCase();
+        let mensaje = '';
+        if (!EXTENSIONES.includes(ext)) mensaje = 'Selecciona un archivo JPG, PNG o PDF.';
+        else if (f.size === 0) mensaje = 'El archivo está vacío.';
+        else if (f.size > MAX_BYTES) mensaje = 'El archivo supera el límite de 5 MB.';
+
+        if (mensaje) {
+            archivo.setCustomValidity(mensaje);
+            archivo.classList.add('is-invalid');
+            errorArchivo.textContent = mensaje;
+            return false;
+        }
+        return true;
+    }
+
+    function restaurarBoton() {
+        boton.disabled = false;
+        boton.textContent = 'Enviar comprobante';
+    }
+
+    // Cada vez que se abre el modal, se rellena con los datos del pedido pulsado
+    modal.addEventListener('show.bs.modal', function (evento) {
+        const origen = evento.relatedTarget;
+        if (!origen) return;
+
+        form.reset();
+        validarArchivo();
+        restaurarBoton();
+
+        form.action = origen.dataset.action;
+        document.getElementById('pagoPedido').textContent = '#' + origen.dataset.pedido;
+        modal.querySelectorAll('.pago-total').forEach(function (el) {
+            el.textContent = origen.dataset.total;
+        });
+
+        const motivo = origen.dataset.rechazo || '';
+        document.getElementById('pagoRechazo').hidden = !motivo;
+        document.getElementById('pagoRechazoTexto').textContent = motivo;
+
+        mostrarMetodo();
+    });
+
+    form.querySelectorAll('input[name="metodo"]').forEach(function (r) {
+        r.addEventListener('change', mostrarMetodo);
+    });
+    archivo.addEventListener('change', validarArchivo);
+
+    form.addEventListener('submit', function (evento) {
+        if (!validarArchivo()) {
+            evento.preventDefault();
+            archivo.reportValidity();
+            return;
+        }
+        boton.disabled = true;
+        boton.textContent = 'Enviando...';
+    });
+
+    window.addEventListener('pageshow', restaurarBoton);
+})();
+</script>
+{% endif %}
+
+{% endblock %}

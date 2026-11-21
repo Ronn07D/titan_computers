@@ -1,0 +1,357 @@
+{% extends "base.html" %}
+{% from "pv_macros.html" import csrf, dinero, fecha %}
+
+{% block content %}
+{% macro texto_estado(e) -%}
+  {{ {'PENDIENTE': 'En revisión', 'VALIDADO': 'Validado', 'RECHAZADO': 'Rechazado'}.get(e, e|capitalize) }}
+{%- endmacro %}
+
+{% macro texto_estado_plural(e) -%}
+  {{ {'PENDIENTE': 'En revisión', 'VALIDADO': 'Validados', 'RECHAZADO': 'Rechazados'}.get(e, e|capitalize) }}
+{%- endmacro %}
+
+{% macro badge_estado(e) -%}
+  {% set clase = {'PENDIENTE': 'bg-warning text-dark', 'VALIDADO': 'bg-success', 'RECHAZADO': 'bg-danger'}.get(e, 'bg-secondary') %}
+  <span class="badge {{ clase }}">{{ texto_estado(e) }}</span>
+{%- endmacro %}
+
+{% macro texto_metodo(m) -%}
+  {{ {'TRANSFERENCIA': 'Transferencia bancaria', 'QR': 'Código QR'}.get(m, m) }}
+{%- endmacro %}
+
+{# --- Datos generales del pago --- #}
+{% macro datos_pago(p) %}
+  <h3 class="h6 mb-3">Información del pago</h3>
+  <dl class="row small mb-4">
+    <dt class="col-sm-4">Cliente</dt>
+    <dd class="col-sm-8">{{ p.pedido.cliente.nombres }} {{ p.pedido.cliente.apellidos }}</dd>
+
+    <dt class="col-sm-4">Método</dt>
+    <dd class="col-sm-8">{{ texto_metodo(p.metodo) }}</dd>
+
+    <dt class="col-sm-4">N.º de transacción</dt>
+    <dd class="col-sm-8 text-break">{{ p.referencia or 'No proporcionado' }}</dd>
+
+    <dt class="col-sm-4">Monto declarado</dt>
+    <dd class="col-sm-8 fw-bold text-primary">{{ dinero(p.monto) }}</dd>
+
+    <dt class="col-sm-4">Total del pedido</dt>
+    <dd class="col-sm-8 fw-semibold">{{ dinero(p.pedido.total) }}</dd>
+
+    <dt class="col-sm-4">Estado</dt>
+    <dd class="col-sm-8">{{ badge_estado(p.estado) }}</dd>
+  </dl>
+{% endmacro %}
+
+{# --- Productos del pedido --- #}
+{% macro productos_pedido(p) %}
+  <h3 class="h6 mb-3">Productos del pedido</h3>
+  <div class="table-responsive mb-4">
+    <table class="table table-bordered bg-white align-middle small mb-0">
+      <thead class="table-dark">
+        <tr>
+          <th>Producto</th>
+          <th class="text-center">Cantidad</th>
+          <th class="text-end">Subtotal</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in p.pedido.detalles %}
+          <tr>
+            <td>{{ d.producto.nombre }}</td>
+            <td class="text-center">{{ d.cantidad }}</td>
+            <td class="text-end text-nowrap">{{ dinero(d.subtotal) }}</td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="3" class="text-center text-muted py-3">
+              No hay productos asociados al pedido.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <th colspan="2" class="text-end">Total del pedido</th>
+          <th class="text-end text-primary text-nowrap">{{ dinero(p.pedido.total) }}</th>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+{% endmacro %}
+
+{# --- Comprobante (imagen o PDF) --- #}
+{% macro comprobante(p) %}
+  {% set url_comp = url_for('pagos.comprobante', id_pago=p.id_pago) if p.comprobante else none %}
+  {% set es_pdf = p.comprobante and p.comprobante.lower().endswith('.pdf') %}
+
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <h3 class="h6 mb-0">Comprobante de pago</h3>
+    {% if url_comp %}
+      <a href="{{ url_comp }}" class="btn btn-sm btn-outline-primary"
+         target="_blank" rel="noopener noreferrer">
+        {{ 'Abrir PDF' if es_pdf else 'Abrir imagen' }}
+      </a>
+    {% endif %}
+  </div>
+
+  {% if not url_comp %}
+    <div class="alert alert-warning mb-0">Este pago no tiene un comprobante adjunto.</div>
+
+  {% elif es_pdf %}
+    <div class="border rounded bg-light p-4 text-center">
+      <p class="fw-semibold mb-2">Comprobante en PDF</p>
+      <p class="small text-muted">Abre el archivo para verificar los datos antes de decidir.</p>
+      <a href="{{ url_comp }}" class="btn btn-primary" target="_blank" rel="noopener noreferrer">
+        Revisar PDF
+      </a>
+    </div>
+
+  {% else %}
+    <div class="border rounded bg-light p-2 text-center">
+      <a href="{{ url_comp }}" target="_blank" rel="noopener noreferrer">
+        <img src="{{ url_comp }}" alt="Comprobante del pago #{{ p.id_pago }}"
+             class="img-fluid rounded" loading="lazy"
+             style="max-height: 480px; object-fit: contain;">
+      </a>
+    </div>
+    <p class="small text-muted mt-2 mb-0">Selecciona la imagen para ampliarla en otra pestaña.</p>
+  {% endif %}
+{% endmacro %}
+
+{# ================= TÍTULO ================= #}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2>Gestión de Pagos</h2>
+</div>
+
+{# ================= MENSAJES ================= #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for category, message in messages %}
+    <div class="alert alert-{{ 'danger' if category == 'error' else category }}">{{ message }}</div>
+  {% endfor %}
+{% endwith %}
+
+{# ================= FILTROS ================= #}
+<div class="d-flex flex-wrap gap-2 mb-4">
+  {% set todos_activo = estado not in estados %}
+  <a href="{{ url_for('pagos.admin_lista', estado='') }}"
+     class="btn {{ 'btn-primary' if todos_activo else 'btn-outline-secondary' }}"
+     {% if todos_activo %}aria-current="page"{% endif %}>
+    Todos ({{ conteos.values()|sum }})
+  </a>
+
+  {% for e in estados %}
+    {% set activo = estado == e %}
+    <a href="{{ url_for('pagos.admin_lista', estado=e) }}"
+       class="btn {{ 'btn-primary' if activo else 'btn-outline-secondary' }}"
+       {% if activo %}aria-current="page"{% endif %}>
+      {{ texto_estado_plural(e) }} ({{ conteos.get(e, 0) }})
+    </a>
+  {% endfor %}
+</div>
+
+{# ================= TABLA ================= #}
+<div class="table-responsive">
+  <table class="table table-bordered table-hover bg-white shadow-sm align-middle">
+    <thead class="table-dark">
+      <tr>
+        <th>ID</th>
+        <th>Fecha</th>
+        <th>Pedido</th>
+        <th>Cliente</th>
+        <th>Método</th>
+        <th class="text-end">Monto</th>
+        <th>Estado</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in pagos %}
+        {% set pendiente = p.estado == 'PENDIENTE' %}
+        <tr>
+          <td>{{ p.id_pago }}</td>
+          <td class="text-nowrap">{{ fecha(p.fecha_pago) }}</td>
+          <td>#{{ p.id_pedido }}</td>
+          <td>{{ p.pedido.cliente.nombres }} {{ p.pedido.cliente.apellidos }}</td>
+          <td>{{ texto_metodo(p.metodo) }}</td>
+          <td class="text-end text-nowrap">{{ dinero(p.monto) }}</td>
+          <td>{{ badge_estado(p.estado) }}</td>
+          <td>
+            {# Pendiente -> modal de revisión | Validado/Rechazado -> modal de detalle #}
+            <button type="button"
+                    class="btn btn-sm text-nowrap {{ 'btn-warning' if pendiente else 'btn-primary' }}"
+                    data-bs-toggle="modal"
+                    data-bs-target="#{{ 'modalRevisar' if pendiente else 'modalDetalle' }}{{ p.id_pago }}">
+              {{ 'Revisar' if pendiente else 'Ver detalle' }}
+            </button>
+          </td>
+        </tr>
+      {% else %}
+        <tr>
+          <td colspan="8" class="text-center text-muted py-4">
+            {{ {
+              'PENDIENTE': 'No hay pagos pendientes de revisión.',
+              'VALIDADO': 'No hay pagos validados.',
+              'RECHAZADO': 'No hay comprobantes rechazados.'
+            }.get(estado, 'Todavía no hay pagos registrados.') }}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{# ================= MODALES ================= #}
+{% for p in pagos %}
+
+  {% if p.estado == 'PENDIENTE' %}
+  {# ---------- MODAL: REVISAR / VALIDAR ---------- #}
+  <div class="modal fade" id="modalRevisar{{ p.id_pago }}" tabindex="-1"
+       aria-labelledby="tituloRevisar{{ p.id_pago }}" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content">
+
+        <div class="modal-header bg-dark text-white">
+          <div>
+            <h2 class="modal-title fs-5" id="tituloRevisar{{ p.id_pago }}">Revisar pago #{{ p.id_pago }}</h2>
+            <p class="small mb-0 mt-1 opacity-75">
+              Pedido #{{ p.id_pedido }} &middot; Recibido el {{ fecha(p.fecha_pago) }}
+            </p>
+          </div>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+
+        <div class="modal-body">
+          <div class="row g-4">
+
+            <div class="col-lg-7">
+              {{ datos_pago(p) }}
+              {{ productos_pedido(p) }}
+              {{ comprobante(p) }}
+            </div>
+
+            <div class="col-lg-5">
+
+              <div class="border rounded p-3 mb-3">
+                <h3 class="h6">Validar pago</h3>
+                <p class="small text-muted">
+                  Comprueba el destinatario, la referencia y el importe del comprobante antes de validar.
+                </p>
+
+                <dl class="row small mb-3">
+                  <dt class="col-6 text-muted">Total del pedido</dt>
+                  <dd class="col-6 text-end">{{ dinero(p.pedido.total) }}</dd>
+                  <dt class="col-6 text-muted">Monto declarado</dt>
+                  <dd class="col-6 text-end">{{ dinero(p.monto) }}</dd>
+                </dl>
+
+                {% if p.pedido.estado == 'CANCELADO' %}
+                  <div class="alert alert-warning small mb-0">
+                    El pedido está cancelado. No se puede validar su pago.
+                  </div>
+                {% elif not p.comprobante %}
+                  <div class="alert alert-warning small mb-0">
+                    No hay comprobante para revisar. Verifica el origen de este registro antes de continuar.
+                  </div>
+                {% else %}
+                  <form method="post" action="{{ url_for('pagos.validar', id_pago=p.id_pago) }}"
+                        onsubmit="return confirm('¿Confirmas que revisaste el pago y deseas validarlo?')">
+                    {{ csrf() }}
+                    <button type="submit" class="btn btn-success w-100">
+                      Validar pago y registrar venta
+                    </button>
+                  </form>
+                {% endif %}
+              </div>
+
+              <div class="border rounded p-3">
+                <h3 class="h6">Rechazar comprobante</h3>
+                <p class="small text-muted">
+                  Indica el motivo. El cliente podrá verlo y enviar un nuevo comprobante.
+                </p>
+
+                <form method="post" action="{{ url_for('pagos.rechazar', id_pago=p.id_pago) }}">
+                  {{ csrf() }}
+                  <div class="mb-3">
+                    <label for="observacion{{ p.id_pago }}" class="form-label">Motivo del rechazo</label>
+                    <textarea class="form-control" id="observacion{{ p.id_pago }}" name="observacion"
+                              rows="4" maxlength="255"
+                              placeholder="Explica qué debe corregir el cliente..." required></textarea>
+                    <div class="form-text">Máximo 255 caracteres.</div>
+                  </div>
+                  <button type="submit" class="btn btn-outline-danger w-100">Rechazar comprobante</button>
+                </form>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% else %}
+  {# ---------- MODAL: VER DETALLE (validado / rechazado) ---------- #}
+  <div class="modal fade" id="modalDetalle{{ p.id_pago }}" tabindex="-1"
+       aria-labelledby="tituloDetalle{{ p.id_pago }}" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content">
+
+        <div class="modal-header bg-dark text-white">
+          <div>
+            <h2 class="modal-title fs-5" id="tituloDetalle{{ p.id_pago }}">Detalle del pago #{{ p.id_pago }}</h2>
+            <p class="small mb-0 mt-1 opacity-75">
+              Pedido #{{ p.id_pedido }} &middot; Recibido el {{ fecha(p.fecha_pago) }}
+            </p>
+          </div>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+
+        <div class="modal-body">
+          <div class="row g-4">
+
+            <div class="col-lg-7">
+              {{ datos_pago(p) }}
+              {{ productos_pedido(p) }}
+              {{ comprobante(p) }}
+            </div>
+
+            <div class="col-lg-5">
+              <div class="border rounded p-3">
+                <h3 class="h6 mb-3">Resultado de la revisión</h3>
+
+                {% if p.estado == 'VALIDADO' %}
+                  <div class="alert alert-success small">El pago fue validado.</div>
+                {% elif p.estado == 'RECHAZADO' %}
+                  <div class="alert alert-danger small">El comprobante fue rechazado.</div>
+                {% else %}
+                  <div class="alert alert-secondary small">Estado actual: {{ p.estado }}.</div>
+                {% endif %}
+
+                <dl class="small mb-0">
+                  <dt class="text-muted fw-normal">Fecha de revisión</dt>
+                  <dd class="mb-3">{{ fecha(p.fecha_validacion) }}</dd>
+
+                  {% if p.validador %}
+                    <dt class="text-muted fw-normal">Revisado por</dt>
+                    <dd class="mb-3">{{ p.validador.nombre_usuario }}</dd>
+                  {% endif %}
+
+                  {% if p.observacion %}
+                    <dt class="text-muted fw-normal">Observación</dt>
+                    <dd class="text-break mb-3" style="white-space: pre-line;">{{ p.observacion }}</dd>
+                  {% endif %}
+                </dl>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+{% endfor %}
+
+{% endblock %}

@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+{% from "pv_macros.html" import dinero, fecha %}
+
+{% block content %}
+
+{# ================= MACROS ================= #}
+{% macro texto_metodo(m) -%}
+  {{ {'TRANSFERENCIA': 'Transferencia bancaria', 'QR': 'Código QR'}.get(m, m) }}
+{%- endmacro %}
+
+{# ================= TÍTULO ================= #}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2>Historial de Ventas</h2>
+</div>
+
+{# ================= MENSAJES ================= #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for category, message in messages %}
+    <div class="alert alert-{{ 'danger' if category == 'error' else category }}">{{ message }}</div>
+  {% endfor %}
+{% endwith %}
+
+{# ================= FILTROS ================= #}
+<form method="get" class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <div class="row g-3 align-items-end">
+      <div class="col-sm-6 col-lg-3">
+        <label for="desde" class="form-label small mb-1">Desde</label>
+        <input type="date" class="form-control" id="desde" name="desde" value="{{ desde }}">
+      </div>
+
+      <div class="col-sm-6 col-lg-3">
+        <label for="hasta" class="form-label small mb-1">Hasta</label>
+        <input type="date" class="form-control" id="hasta" name="hasta" value="{{ hasta }}">
+      </div>
+
+      <div class="col-lg-3">
+        <label for="q" class="form-label small mb-1">Cliente, CI o N.° de venta</label>
+        <input type="text" class="form-control" id="q" name="q" value="{{ q }}">
+      </div>
+
+      <div class="col-lg-3 d-flex gap-2">
+        <button type="submit" class="btn btn-primary flex-fill">Filtrar</button>
+        <a href="{{ url_for('ventas.lista') }}" class="btn btn-outline-secondary flex-fill">Limpiar</a>
+      </div>
+    </div>
+  </div>
+</form>
+
+{# ================= RESUMEN ================= #}
+<div class="row g-3 mb-4">
+  <div class="col-sm-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <p class="text-muted small mb-1">Ventas encontradas</p>
+        <p class="fs-4 fw-bold mb-0">{{ cantidad }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <p class="text-muted small mb-1">Monto total</p>
+        <p class="fs-4 fw-bold text-primary mb-0">{{ dinero(total_monto) }}</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ================= TABLA ================= #}
+{% if not paginacion.items %}
+
+  <div class="alert alert-secondary">
+    No hay ventas para estos filtros. Las ventas se registran al validar un pago.
+  </div>
+
+{% else %}
+
+  <div class="table-responsive">
+    <table class="table table-bordered table-hover bg-white shadow-sm align-middle">
+      <thead class="table-dark">
+        <tr>
+          <th>Venta</th>
+          <th>Fecha</th>
+          <th>Pedido</th>
+          <th>Cliente</th>
+          <th>Método de pago</th>
+          <th class="text-end">Total</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for v in paginacion.items %}
+          <tr>
+            <td>#{{ v.id_venta }}</td>
+            <td class="text-nowrap">{{ fecha(v.fecha) }}</td>
+            <td>#{{ v.id_pedido }}</td>
+            <td>{{ v.pedido.cliente.nombres }} {{ v.pedido.cliente.apellidos }}</td>
+            <td><span class="badge bg-info text-dark">{{ texto_metodo(v.pago.metodo) }}</span></td>
+            <td class="text-end text-nowrap fw-semibold">{{ dinero(v.total) }}</td>
+            <td>
+              <button type="button" class="btn btn-sm btn-primary text-nowrap"
+                      data-bs-toggle="modal"
+                      data-bs-target="#modalVenta{{ v.id_venta }}">
+                Ver detalle
+              </button>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {# ================= PAGINACIÓN ================= #}
+  <nav aria-label="Paginación de ventas" class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <span class="text-muted small">
+      Página {{ paginacion.page }} de {{ paginacion.pages or 1 }}
+    </span>
+
+    <ul class="pagination mb-0">
+      <li class="page-item {{ '' if paginacion.has_prev else 'disabled' }}">
+        <a class="page-link"
+           href="{{ url_for('ventas.lista', page=paginacion.prev_num, desde=desde, hasta=hasta, q=q) if paginacion.has_prev else '#' }}">
+          &laquo; Anterior
+        </a>
+      </li>
+      <li class="page-item {{ '' if paginacion.has_next else 'disabled' }}">
+        <a class="page-link"
+           href="{{ url_for('ventas.lista', page=paginacion.next_num, desde=desde, hasta=hasta, q=q) if paginacion.has_next else '#' }}">
+          Siguiente &raquo;
+        </a>
+      </li>
+    </ul>
+  </nav>
+
+  {# ================= MODALES DE DETALLE ================= #}
+  {% for v in paginacion.items %}
+    <div class="modal fade" id="modalVenta{{ v.id_venta }}" tabindex="-1"
+         aria-labelledby="tituloVenta{{ v.id_venta }}" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+
+          <div class="modal-header bg-dark text-white">
+            <div>
+              <h2 class="modal-title fs-5" id="tituloVenta{{ v.id_venta }}">Detalle de la venta #{{ v.id_venta }}</h2>
+              <p class="small mb-0 mt-1 opacity-75">
+                Pedido #{{ v.id_pedido }} &middot; {{ fecha(v.fecha) }}
+              </p>
+            </div>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+
+          <div class="modal-body">
+
+            <h3 class="h6 mb-3">Información de la venta</h3>
+            <dl class="row small mb-4">
+              <dt class="col-sm-4">Cliente</dt>
+              <dd class="col-sm-8">{{ v.pedido.cliente.nombres }} {{ v.pedido.cliente.apellidos }}</dd>
+
+              <dt class="col-sm-4">Método de pago</dt>
+              <dd class="col-sm-8">{{ texto_metodo(v.pago.metodo) }}</dd>
+
+              <dt class="col-sm-4">N.° de transacción</dt>
+              <dd class="col-sm-8 text-break">{{ v.pago.referencia or 'No proporcionado' }}</dd>
+
+              <dt class="col-sm-4">Estado del pago</dt>
+              <dd class="col-sm-8"><span class="badge bg-success">Validado</span></dd>
+
+              {% if v.pago.comprobante %}
+                <dt class="col-sm-4">Comprobante</dt>
+                <dd class="col-sm-8">
+                  <a href="{{ url_for('pagos.comprobante', id_pago=v.pago.id_pago) }}"
+                     class="btn btn-sm btn-outline-primary"
+                     target="_blank" rel="noopener noreferrer">
+                    Abrir comprobante
+                  </a>
+                </dd>
+              {% endif %}
+            </dl>
+
+            <h3 class="h6 mb-3">Productos</h3>
+            <div class="table-responsive">
+              <table class="table table-bordered bg-white align-middle small mb-0">
+                <thead class="table-dark">
+                  <tr>
+                    <th>Producto</th>
+                    <th class="text-center">Cantidad</th>
+                    <th class="text-end">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for d in v.pedido.detalles %}
+                    <tr>
+                      <td>{{ d.producto.nombre }}</td>
+                      <td class="text-center">{{ d.cantidad }}</td>
+                      <td class="text-end text-nowrap">{{ dinero(d.subtotal) }}</td>
+                    </tr>
+                  {% else %}
+                    <tr>
+                      <td colspan="3" class="text-center text-muted py-3">
+                        No hay productos asociados al pedido.
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <th colspan="2" class="text-end">Total de la venta</th>
+                    <th class="text-end text-primary text-nowrap">{{ dinero(v.total) }}</th>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,16 @@
+{# Macros compartidas por los modulos de pagos, ventas y reportes #}
+{% macro csrf() -%}
+  {%- if csrf_token is defined -%}
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro badge(clave, texto=None) -%}
+  <span class="pv-badge pv-{{ clave|lower }}">{{ texto or clave }}</span>
+{%- endmacro %}
+
+{% macro dinero(valor) -%}Bs. {{ '%.2f'|format(valor or 0) }}{%- endmacro %}
+
+{% macro fecha(valor, con_hora=True) -%}
+  {%- if valor -%}{{ valor.strftime('%d/%m/%Y %H:%M' if con_hora else '%d/%m/%Y') }}{%- else -%}-{%- endif -%}
+{%- endmacro %}
