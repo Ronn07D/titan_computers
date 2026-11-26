@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, app
 from .extensions import db, migrate, login_manager
 from config import Config
 from datetime import date
@@ -34,6 +34,11 @@ def create_app():
     app.register_blueprint(bp_pagos, url_prefix='/pagos')
     from app.modules.ventas.routes import bp_ventas
     app.register_blueprint(bp_ventas, url_prefix='/ventas')
+    
+    from app.modules.reportes.routes import reportes_bp
+    app.register_blueprint(reportes_bp, url_prefix='/reportes')
+
+    
     
     @app.route('/')
     def index():

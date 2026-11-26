@@ -62,16 +62,19 @@
                             <li><a class="dropdown-item" href="{{ url_for('ofertas.admin_ofertas') }}">Ofertas</a></li>
                             <li><a class="dropdown-item"
                                     href="{{ url_for('ofertas.admin_promociones') }}">Promociones</a></li>
-                             <!-- CORREGIDO: Ahora apunta al Blueprint 'pagos y ventas' -->
-                                    <li><a class="dropdown-item"
-                                    href="{{ url_for('pagos.admin_lista') }}">
-                                Administrar pagos
-                            </a>
+                            <!-- CORREGIDO: Ahora apunta al Blueprint 'pagos y ventas' -->
+                            <li><a class="dropdown-item" href="{{ url_for('pagos.admin_lista') }}">
+                                    Administrar pagos
+                                </a>
                             </li>
-                            <li><a class="dropdown-item"
-                                    href="{{ url_for('ventas.lista') }}">
-                                Historial de ventas
-                            </a>
+                            <li><a class="dropdown-item" href="{{ url_for('ventas.lista') }}">
+                                    Historial de ventas
+                                </a>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('reportes.index') }}">
+                                    Reportes
+                                </a>
+                            </li>
                         </ul>
                     </li>
                     {% endif %}

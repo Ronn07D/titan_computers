@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<style>
+    @media print {
+        .navbar,
+        .reporte-controles,
+        .reporte-mensajes {
+            display: none !important;
+        }
+
+        body {
+            background: white !important;
+        }
+
+        .table-responsive {
+            overflow: visible !important;
+        }
+    }
+</style>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+    <h2>{{ rep.titulo }}</h2>
+
+    <a href="{{ url_for('reportes.index') }}"
+       class="btn btn-outline-secondary reporte-controles">
+        Volver a reportes
+    </a>
+</div>
+
+<div class="reporte-mensajes">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ 'danger' if category == 'error' else category }}"
+                 role="alert">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endwith %}
+</div>
+
+<form method="get"
+      action="{{ url_for('reportes.ver', tipo=tipo) }}"
+      class="bg-white border rounded shadow-sm p-3 mb-4 reporte-controles">
+
+    <div class="row g-3 align-items-end">
+
+        {% if tipo == 'productos' %}
+
+            <div class="col-sm-6 col-lg-3">
+                <label for="categoria" class="form-label">Categoría</label>
+
+                <select id="categoria" name="categoria" class="form-select">
+                    <option value="">Todas</option>
+
+                    {% for c in categorias %}
+                        <option value="{{ c.id_categoria }}"
+                                {% if args.get('categoria') == c.id_categoria|string %}selected{% endif %}>
+                            {{ c.nombre }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-sm-6 col-lg-3">
+                <label for="marca" class="form-label">Marca</label>
+
+                <select id="marca" name="marca" class="form-select">
+                    <option value="">Todas</option>
+
+                    {% for m in marcas %}
+                        <option value="{{ m.id_marca }}"
+                                {% if args.get('marca') == m.id_marca|string %}selected{% endif %}>
+                            {{ m.nombre }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-sm-6 col-lg-3">
+                <label for="estado" class="form-label">Estado</label>
+
+                <select id="estado" name="estado" class="form-select">
+                    <option value="">Todos</option>
+
+                    <option value="activo"
+                            {% if args.get('estado') == 'activo' %}selected{% endif %}>
+                        Activos
+                    </option>
+
+                    <option value="inactivo"
+                            {% if args.get('estado') == 'inactivo' %}selected{% endif %}>
+                        Inactivos
+                    </option>
+                </select>
+            </div>
+
+            <div class="col-sm-6 col-lg-3">
+                <label for="stock_max" class="form-label">Stock máximo</label>
+
+                <input type="number"
+                       id="stock_max"
+                       name="stock_max"
+                       class="form-control"
+                       min="0"
+                       value="{{ args.get('stock_max', '') }}"
+                       placeholder="Sin límite">
+            </div>
+
+        {% elif tipo == 'ventas' or tipo == 'pagos' %}
+
+            <div class="col-sm-6 col-lg-3">
+                <label for="desde" class="form-label">Desde</label>
+
+                <input type="date"
+                       id="desde"
+                       name="desde"
+                       class="form-control"
+                       value="{{ args.get('desde', '') }}">
+            </div>
+
+            <div class="col-sm-6 col-lg-3">
+                <label for="hasta" class="form-label">Hasta</label>
+
+                <input type="date"
+                       id="hasta"
+                       name="hasta"
+                       class="form-control"
+                       value="{{ args.get('hasta', '') }}">
+            </div>
+
+            {% if tipo == 'pagos' %}
+
+                <div class="col-sm-6 col-lg-3">
+                    <label for="estado" class="form-label">Estado del pago</label>
+
+                    <select id="estado" name="estado" class="form-select">
+                        <option value="">Todos</option>
+
+                        <option value="PENDIENTE"
+                                {% if args.get('estado') == 'PENDIENTE' %}selected{% endif %}>
+                            En revisión
+                        </option>
+
+                        <option value="VALIDADO"
+                                {% if args.get('estado') == 'VALIDADO' %}selected{% endif %}>
+                            Validado
+                        </option>
+
+                        <option value="RECHAZADO"
+                                {% if args.get('estado') == 'RECHAZADO' %}selected{% endif %}>
+                            Rechazado
+                        </option>
+                    </select>
+                </div>
+
+                <div class="col-sm-6 col-lg-3">
+                    <label for="metodo" class="form-label">Método de pago</label>
+
+                    <select id="metodo" name="metodo" class="form-select">
+                        <option value="">Todos</option>
+
+                        <option value="TRANSFERENCIA"
+                                {% if args.get('metodo') == 'TRANSFERENCIA' %}selected{% endif %}>
+                            Transferencia bancaria
+                        </option>
+
+                        <option value="QR"
+                                {% if args.get('metodo') == 'QR' %}selected{% endif %}>
+                            Código QR
+                        </option>
+                    </select>
+                </div>
+
+            {% endif %}
+
+        {% elif tipo == 'promociones' %}
+
+            <div class="col-sm-6 col-lg-4">
+                <label for="vigencia" class="form-label">Vigencia</label>
+
+                <select id="vigencia" name="vigencia" class="form-select">
+                    <option value="">Todas</option>
+
+                    {% for v in ['vigente', 'vencida', 'programada', 'inactiva'] %}
+                        <option value="{{ v }}"
+                                {% if args.get('vigencia') == v %}selected{% endif %}>
+                            {{ v|capitalize }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+        {% endif %}
+
+    </div>
+
+    <div class="d-flex flex-wrap gap-2 mt-3">
+        <button type="submit" class="btn btn-primary">
+            Generar
+        </button>
+
+        <a href="{{ url_for('reportes.ver', tipo=tipo) }}"
+           class="btn btn-outline-secondary">
+            Limpiar
+        </a>
+
+        <a href="{{ url_for('reportes.ver', tipo=tipo, formato='pdf', **args) }}"
+           class="btn btn-outline-danger">
+            Descargar PDF
+        </a>
+
+        <a href="{{ url_for('reportes.ver', tipo=tipo, formato='csv', **args) }}"
+           class="btn btn-outline-success">
+            Descargar CSV
+        </a>
+
+        <button type="button"
+                class="btn btn-outline-dark"
+                onclick="window.print()">
+            Imprimir
+        </button>
+    </div>
+</form>
+
+<p class="text-muted small mb-4">
+    <span class="fw-semibold">Filtros aplicados:</span>
+    {{ rep.filtros or 'Sin filtros' }}
+</p>
+
+{% if rep.totales %}
+    <div class="row g-3 mb-4">
+        {% for etiqueta, valor in rep.totales %}
+            <div class="col-sm-6 col-lg-3">
+                <div class="bg-white border rounded shadow-sm p-3 h-100">
+                    <p class="text-muted small mb-1">
+                        {{ etiqueta }}
+                    </p>
+                    <p class="h5 mb-0">{{ valor }}</p>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+
+{% if rep.rows %}
+
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover bg-white shadow-sm align-middle">
+            <thead class="table-dark">
+                <tr>
+                    {% for encabezado in rep.headers %}
+                        <th scope="col"
+                            class="{{ 'text-end' if loop.index0 in rep.num_cols else '' }}">
+                            {{ encabezado }}
+                        </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for fila in rep.rows %}
+                    <tr>
+                        {% for valor in fila %}
+                            <td class="{{ 'text-end text-nowrap'
+                                          if loop.index0 in rep.num_cols else '' }}">
+                                {{ valor }}
+                            </td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <p class="small text-muted">
+        Registros encontrados: {{ rep.rows|length }}
+    </p>
+
+{% else %}
+
+    <div class="alert alert-info text-center py-4">
+        No hay datos para los filtros seleccionados.
+    </div>
+
+{% endif %}
+
+{% endblock %}
